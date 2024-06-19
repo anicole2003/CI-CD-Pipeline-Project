@@ -1,0 +1,119 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v2
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
+      - name: Install Project Dependencies
+        run: npm ci
+
+      - name: Build Application
+        run: npm run build
+
+      - name: List Build Directory
+        run: ls -la build
+
+      - name: Rename Build Output File
+        run: mv build/old_filename.txt build/new_filename.txt
+
+      - name: List Build Directory After Rename
+        run: ls -la build
+
+      - name: Save Build Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: build
+          path: build/
+
+  security_check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v2
+
+      - name: Install Project Dependencies
+        run: npm ci
+
+      - name: Execute Security Audit
+        run: npm audit
+
+  run_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v2
+
+      - name: Install Project Dependencies
+        run: npm ci
+
+      - name: Execute Tests
+        run: npm run test
+
+  lint_code:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v2
+
+      - name: Install Project Dependencies
+        run: npm ci
+
+      - name: Run Code Linter
+        run: npm run lint
+
+  static_analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v2
+
+      - name: Install Project Dependencies
+        run: npm ci
+
+      - name: Perform Static Code Analysis
+        run: npm run static-analysis
+
+  deploy_to_gh_pages:
+    runs-on: ubuntu-latest
+    needs: [build, run_tests, lint_code]
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v2
+
+      - name: Retrieve Build Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: build
+          path: ./build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./build
+
+  verify_deployment:
+    runs-on: ubuntu-latest
+    needs: deploy_to_gh_pages
+    steps:
+      - name: Verify Deployment
+        run: |
+          echo "Verifying deployment status"
+          for attempt in {1..5}; do
+            curl -I https://anicole2003.github.io/CI-CD-Pipeline-Project/ | grep "200 OK" && break || sleep 10
+          done
+
